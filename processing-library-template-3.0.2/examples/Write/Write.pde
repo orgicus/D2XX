@@ -1,19 +1,16 @@
+// TODO: why is this lib called template?
 import template.library.*;
 
-HelloLibrary hello;
+D2XX d2xx;
 
 void setup() {
   size(400,400);
   smooth();
   
-  hello = new HelloLibrary(this);
-  
-  PFont font = createFont("",40);
-  textFont(font);
+  d2xx = new D2XX(this, 1, 9600);
 }
 
 void draw() {
   background(0);
   fill(255);
-  text(hello.sayHello(), 40, 200);
 }
