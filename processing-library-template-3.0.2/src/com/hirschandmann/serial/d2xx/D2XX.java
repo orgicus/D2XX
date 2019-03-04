@@ -22,6 +22,7 @@ public class D2XX {
 	private boolean isArm = false;
 	private Device[] devices;
 	private Device dev;
+	private int portIndex;
 	
 	public final static String VERSION = "##library.prettyVersion##";
 	
@@ -38,7 +39,9 @@ public class D2XX {
 	 */
 	public D2XX(PApplet parent,int portIndex,int baudRate) {
 		this.parent = parent;
+		this.portIndex = portIndex;
 		initNative();
+		openDevice();
 	}
 	
 	private String getLibPath() {
@@ -74,22 +77,26 @@ public class D2XX {
 			String nativeLibPath = getLibPath();
 			System.out.println("original nativeLibPath: " + nativeLibPath);
 			String path = null;
+			String fileName = null;
 			
 			if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
 				switch(bitsJVM) {
 				case 32:
 					path = nativeLibPath + "windows" + bitsJVM + File.separator + "ftd2xxj.dll";
 					System.out.println("platform: windows path: " + path);
+					fileName = "ftd2xxj";
 					break;
 				case 64:
 					path = nativeLibPath + "windows" + bitsJVM + File.separator + "ftd2xxj.dll";
 					System.out.println("platform: windows path: " + path);
+					fileName = "ftd2xxj";
 					break;
 				}
-				path = path.replaceAll("/", File.separator);
+				path = path.replaceAll("//", File.separator);
 			}
 			if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
 				path = nativeLibPath + "macosx" + bitsJVM + File.separator + "libftdxx.1.2.2.dylib";
+				fileName = "ftdxx.1.2.2";
 				System.out.println("platform: mac path: " + path);
 			}
 			if (this.parent.platform == PConstants.LINUX){ // if running on Linux platform
@@ -116,7 +123,7 @@ public class D2XX {
 			
 			System.out.println(System.getProperty("java.library.path"));
 			try {
-				System.loadLibrary("ftdxx.1.2.2");
+				System.loadLibrary(fileName);
 			} catch (UnsatisfiedLinkError e) {
 				e.printStackTrace();
 			}
@@ -158,7 +165,8 @@ public class D2XX {
 		}
 	}
 	
-	public void openDevice(int portIndex){
+	public void openDevice(){
+		listDevices();
 		int numDevices = devices.length;
         if(numDevices > 0 && portIndex < numDevices){
             dev = devices[portIndex];
