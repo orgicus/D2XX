@@ -20,6 +20,8 @@ public class D2XX {
 	PApplet parent;
 	private boolean nativeLoaded;
 	private boolean isArm = false;
+	private Device[] devices;
+	private Device dev;
 	
 	public final static String VERSION = "##library.prettyVersion##";
 	
@@ -28,6 +30,7 @@ public class D2XX {
 	 * initialize and start the Library.
 	 * 
 	 * @example Write
+	 * @example ListDevices
 	 * 
 	 * @param parent 	- the parent sketch
 	 * @param portIndex	- the port index to open (depends on how many are available)
@@ -122,11 +125,31 @@ public class D2XX {
 		}
 	}
 	
-	
-	
+	private void addLibraryPath(String path) throws Exception {
+		String originalPath = System.getProperty("java.library.path");
+		
+		if (isArm) {
+			if (originalPath.indexOf("linux32") != -1) {
+				originalPath = originalPath.replaceAll(":[^:]*?linux32", "");
+			}
+		}
+		
+		try {
+			System.setProperty("java.library.path", originalPath +System.getProperty("path.separator")+ path);
+		} catch (Exception e){
+			e.printStackTrace();
+		}
+		
+		//set sys_paths to null
+		final Field sysPathsField = ClassLoader.class.getDeclaredField("sys_paths");
+		sysPathsField.setAccessible(true);
+		sysPathsField.set(null, null);
+	}
+
 	public void listDevices(){
 		try {
-			Device[] devices = Service.listDevicesByType(DeviceType.FT_DEVICE_UNKNOWN);
+			devices = Service.listDevicesByType(DeviceType.FT_DEVICE_UNKNOWN);
+			System.out.println("Number of devices: " + devices.length);
 			for (int x = 0; x < devices.length; x++){
 				System.out.println(devices[x]);
 			}
@@ -135,34 +158,32 @@ public class D2XX {
 		}
 	}
 	
-	private void addLibraryPath(String path) throws Exception {
-        String originalPath = System.getProperty("java.library.path");
-        
-        // If this is an arm device running linux, Processing seems to include the linux32 dirs in the path,
-        // which conflict with the arm-specific libs. To fix this, we remove the linux32 segments from the path.
-        //
-        // Alternatively, we could do one of the following:
-        // 		A) prepend to the path instead of append, forcing our libs to be used
-        // 		B) rename the libopencv_java245 in the arm7 dir and add logic to load it instead above in System.loadLibrary(...)
-        
-        if (isArm) {
-        	if (originalPath.indexOf("linux32") != -1) {
-        		originalPath = originalPath.replaceAll(":[^:]*?linux32", "");
-        	}
+	public void openDevice(int portIndex){
+		int numDevices = devices.length;
+        if(numDevices > 0 && portIndex < numDevices){
+            dev = devices[portIndex];
+            try{
+                dev.open();
+                Port port = dev.getPort();
+                port.setBaudRate(4000000);
+                port.setDataCharacteristics(DataBits.DATA_BITS_8, StopBits.STOP_BITS_2, Parity.NONE);
+            }catch(Exception e){
+                System.out.println("caught:");
+                e.printStackTrace();
+            }
         }
-        
-        try {
-        	System.setProperty("java.library.path", originalPath +System.getProperty("path.separator")+ path);
-        } catch (Exception e){
-        	e.printStackTrace();
+	}
+	
+	public void sendBytes(byte[] packet) {
+        if(dev != null) {
+            try {
+                dev.write(packet);
+            } catch (FTD2xxException e) {
+                e.printStackTrace();
+            }
         }
-        	
-        //set sys_paths to null
-        final Field sysPathsField = ClassLoader.class.getDeclaredField("sys_paths");
-        sysPathsField.setAccessible(true);
-        sysPathsField.set(null, null);
     }
-
+	
 	/**
 	 * return the version of the Library.
 	 * 
