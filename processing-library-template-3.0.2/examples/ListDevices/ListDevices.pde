@@ -7,6 +7,8 @@ void setup() {
   smooth();
   
   d2xx = new D2XX(this, 1, 9600);
+  
+  d2xx.listDevices();
 }
 
 void draw() {

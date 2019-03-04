@@ -1,10 +1,9 @@
-package template.library;
-
+package com.hirschandmann.serial.d2xx;
 
 import java.io.File;
 import java.lang.reflect.Field;
 import java.net.URL;
-
+import com.ftdichip.ftd2xx.*;
 import com.ftdichip.ftd2xx.Device;
 
 import processing.core.*;
@@ -21,7 +20,7 @@ public class D2XX {
 	PApplet parent;
 	private boolean nativeLoaded;
 	private boolean isArm = false;
-
+	
 	public final static String VERSION = "##library.prettyVersion##";
 	
 	/**
@@ -36,7 +35,6 @@ public class D2XX {
 	 */
 	public D2XX(PApplet parent,int portIndex,int baudRate) {
 		this.parent = parent;
-		welcome();
 		initNative();
 	}
 	
@@ -108,7 +106,14 @@ public class D2XX {
 			}
 			
 			try {
-				System.load(nativeLibPath);
+				addLibraryPath(nativeLibPath);
+			} catch (Exception e){
+				e.printStackTrace();
+			}
+			
+			System.out.println(System.getProperty("java.library.path"));
+			try {
+				System.loadLibrary("ftdxx.1.2.2");
 			} catch (UnsatisfiedLinkError e) {
 				e.printStackTrace();
 			}
@@ -117,10 +122,47 @@ public class D2XX {
 		}
 	}
 	
-	private void welcome() {
-		System.out.println("##library.name## ##library.prettyVersion## by ##author##");
+	
+	
+	public void listDevices(){
+		try {
+			Device[] devices = Service.listDevicesByType(DeviceType.FT_DEVICE_UNKNOWN);
+			for (int x = 0; x < devices.length; x++){
+				System.out.println(devices[x]);
+			}
+		} catch (Exception e){
+			e.printStackTrace();
+		}
 	}
 	
+	private void addLibraryPath(String path) throws Exception {
+        String originalPath = System.getProperty("java.library.path");
+        
+        // If this is an arm device running linux, Processing seems to include the linux32 dirs in the path,
+        // which conflict with the arm-specific libs. To fix this, we remove the linux32 segments from the path.
+        //
+        // Alternatively, we could do one of the following:
+        // 		A) prepend to the path instead of append, forcing our libs to be used
+        // 		B) rename the libopencv_java245 in the arm7 dir and add logic to load it instead above in System.loadLibrary(...)
+        
+        if (isArm) {
+        	if (originalPath.indexOf("linux32") != -1) {
+        		originalPath = originalPath.replaceAll(":[^:]*?linux32", "");
+        	}
+        }
+        
+        try {
+        	System.setProperty("java.library.path", originalPath +System.getProperty("path.separator")+ path);
+        } catch (Exception e){
+        	e.printStackTrace();
+        }
+        	
+        //set sys_paths to null
+        final Field sysPathsField = ClassLoader.class.getDeclaredField("sys_paths");
+        sysPathsField.setAccessible(true);
+        sysPathsField.set(null, null);
+    }
+
 	/**
 	 * return the version of the Library.
 	 * 
