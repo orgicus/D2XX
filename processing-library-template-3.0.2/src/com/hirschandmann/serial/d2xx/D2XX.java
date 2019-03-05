@@ -19,10 +19,12 @@ public class D2XX {
 	// reference to the parent sketch
 	PApplet parent;
 	private boolean nativeLoaded;
-	private boolean isArm = false;
+	private static boolean isArm = false;
 	private Device[] devices;
 	private Device dev;
 	private int portIndex;
+	private static String PATH_SEPARATOR = System.getProperty("Path.separator");
+	private static String FILE_SEPARATOR = File.separator;
 	
 	public final static String VERSION = "##library.prettyVersion##";
 	
@@ -75,34 +77,35 @@ public class D2XX {
 			// returns 'x86_64' on Adam's mac
 			String osArch = System.getProperty("os.arch");
 			String nativeLibPath = getLibPath();
-			System.out.println("original nativeLibPath: " + nativeLibPath);
 			String path = null;
 			String fileName = null;
+			
+			System.out.println("nativeLibPath: " + nativeLibPath);
 			
 			if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
 				switch(bitsJVM) {
 				case 32:
-					path = nativeLibPath + "windows" + bitsJVM + File.separator + "ftd2xxj.dll";
-					System.out.println("platform: windows path: " + path);
-					fileName = "ftd2xxj";
+					fileName = "ftd2xx";
+					path = nativeLibPath + "windows" + bitsJVM;
 					break;
 				case 64:
-					path = nativeLibPath + "windows" + bitsJVM + File.separator + "ftd2xxj.dll";
-					System.out.println("platform: windows path: " + path);
-					fileName = "ftd2xxj";
+					fileName = "ftd2xx64";
+					path = nativeLibPath + "windows" + bitsJVM;
 					break;
 				}
-				path = path.replaceAll("//", File.separator);
+				path = path.replaceAll("//", FILE_SEPARATOR);
 			}
 			if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
-				path = nativeLibPath + "macosx" + bitsJVM + File.separator + "libftdxx.1.2.2.dylib";
 				fileName = "ftdxx.1.2.2";
-				System.out.println("platform: mac path: " + path);
+				path = nativeLibPath + "macosx" + bitsJVM;
 			}
 			if (this.parent.platform == PConstants.LINUX){ // if running on Linux platform
 				isArm = osArch.contains("arm");
-				path = isArm ? nativeLibPath + "linux-armv6hf" : nativeLibPath + "linux" + bitsJVM;
+				fileName = "ftd2xx";
+				PATH_SEPARATOR = ":";
+				path = isArm ? nativeLibPath + "arm7" : nativeLibPath + "linux" + bitsJVM;
 			}
+			System.out.println("platform: "+ this.parent.platform + " lib path: " + path);
 			
 			// make sure the determined path exists
 			try {
@@ -115,25 +118,26 @@ public class D2XX {
 				e.printStackTrace();
 			}
 			
+			// add library path to java.library.path
 			try {
 				addLibraryPath(nativeLibPath);
 			} catch (Exception e){
 				e.printStackTrace();
 			}
 			
-			System.out.println(System.getProperty("java.library.path"));
+			// load the desired library
 			try {
 				System.loadLibrary(fileName);
 			} catch (UnsatisfiedLinkError e) {
 				e.printStackTrace();
 			}
-			
 			nativeLoaded = true;
 		}
 	}
 	
-	private void addLibraryPath(String path) throws Exception {
+	private static void addLibraryPath(String path) throws Exception {
 		String originalPath = System.getProperty("java.library.path");
+		System.out.println("originalPath :" + originalPath);
 		
 		if (isArm) {
 			if (originalPath.indexOf("linux32") != -1) {
@@ -142,10 +146,13 @@ public class D2XX {
 		}
 		
 		try {
-			System.setProperty("java.library.path", originalPath +System.getProperty("path.separator")+ path);
+			System.setProperty("java.library.path", originalPath + PATH_SEPARATOR + path);
 		} catch (Exception e){
 			e.printStackTrace();
 		}
+		
+		System.out.println("newPaths: " + System.getProperty("java.library.path"));
+		System.out.println("pathseparator: " + PATH_SEPARATOR);
 		
 		//set sys_paths to null
 		final Field sysPathsField = ClassLoader.class.getDeclaredField("sys_paths");
