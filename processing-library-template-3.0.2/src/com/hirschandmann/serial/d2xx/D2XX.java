@@ -72,15 +72,11 @@ public class D2XX {
 	// https://github.com/atduskgreg/opencv-processing/blob/master/src/gab/opencv/OpenCV.java#L395
 	private void initNative(){
 		if (!nativeLoaded){
-			// 64 or 32
 			int bitsJVM = this.parent.parseInt(System.getProperty("sun.arch.data.model"));
-			// returns 'x86_64' on Adam's mac
 			String osArch = System.getProperty("os.arch");
 			String nativeLibPath = getLibPath();
 			String path = null;
 			String fileName = null;
-			
-			System.out.println("nativeLibPath: " + nativeLibPath);
 			
 			if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
 				switch(bitsJVM) {
@@ -101,11 +97,10 @@ public class D2XX {
 			}
 			if (this.parent.platform == PConstants.LINUX){ // if running on Linux platform
 				isArm = osArch.contains("arm");
-				fileName = "ftd2xx";
+				fileName = "ftd2xxj";
 				PATH_SEPARATOR = ":";
 				path = isArm ? nativeLibPath + "arm7" : nativeLibPath + "linux" + bitsJVM;
 			}
-			System.out.println("platform: "+ this.parent.platform + " lib path: " + path);
 			
 			// make sure the determined path exists
 			try {
@@ -137,7 +132,6 @@ public class D2XX {
 	
 	private static void addLibraryPath(String path) throws Exception {
 		String originalPath = System.getProperty("java.library.path");
-		System.out.println("originalPath :" + originalPath);
 		
 		if (isArm) {
 			if (originalPath.indexOf("linux32") != -1) {
@@ -150,9 +144,6 @@ public class D2XX {
 		} catch (Exception e){
 			e.printStackTrace();
 		}
-		
-		System.out.println("newPaths: " + System.getProperty("java.library.path"));
-		System.out.println("pathseparator: " + PATH_SEPARATOR);
 		
 		//set sys_paths to null
 		final Field sysPathsField = ClassLoader.class.getDeclaredField("sys_paths");
