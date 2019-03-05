@@ -2,6 +2,11 @@ import com.hirschandmann.serial.d2xx.*;
 
 D2XX d2xx;
 
+int intPacket			= 1;
+byte[] ByteArrayPacket 	= {1,2,3,4,5,6};
+int packetOffset 		= 2;
+int packetLength 		= 3;
+
 void setup() {
   size(400,400);
   smooth();
@@ -13,9 +18,13 @@ void draw() {
   background(0);
   fill(255);
   
-  byte[] packet = {1,2,3};
-  d2xx.sendBytes(packet);
+  
+  d2xx.write(intPacket);
+  
+  d2xx.write(ByteArrayPacket);
+  
+  d2xx.write(ByteArrayPacket, packetOffset, packetLength);
 
   delay(100);
   
-}
+}	
