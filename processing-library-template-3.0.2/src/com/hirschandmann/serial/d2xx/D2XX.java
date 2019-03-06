@@ -58,13 +58,14 @@ public class D2XX implements Runnable{
 	 * 
 	 * @example Write
 	 * @example ListDevices
+	 * @example WriteToSunspots
 	 * 
 	 * @param parent 	- the parent sketch
 	 * @param portIndex	- the port index to open (depends on how many are available)
 	 * @param baudRate	- how many bauds per second should it use for communication
 	 */
 	public D2XX(PApplet parent,int portIndex,int baudRate) {
-		if (parent != null && portIndex > 0 && baudRate != 0){
+		if (parent != null && portIndex >= 0 && baudRate != 0){
 			this.parent = parent;
 			this.portIndex = portIndex;
 			this.baudRate = baudRate;
@@ -323,7 +324,7 @@ public class D2XX implements Runnable{
 		}
 		return "";
 	}
-
+	
 	private static void addLibraryPath(String path) throws Exception {
 		String originalPath = System.getProperty("java.library.path");
 		

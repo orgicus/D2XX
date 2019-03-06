@@ -2,10 +2,10 @@ import com.hirschandmann.serial.d2xx.*;
 
 D2XX d2xx;
 
-int intPacket			= 1;
-byte[] ByteArrayPacket 	= {1,2,3,4,5,6};
-int packetOffset 		= 2;
-int packetLength 		= 3;
+byte[] ByteArrayPacket	= {1,2,3,4,5,6};
+int packetOffset	= 2;
+int packetLength	= 3;
+int intPacket	= 1;
 
 void setup() {
   size(400,400);
