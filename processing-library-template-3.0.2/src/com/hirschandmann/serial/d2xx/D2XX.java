@@ -258,14 +258,13 @@ public class D2XX implements Runnable{
 			if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
 				switch(bitsJVM) {
 				case 32:
-					fileName = "ftd2xx";
 					path = nativeLibPath + "windows" + bitsJVM;
 					break;
 				case 64:
-					fileName = "ftd2xx64";
 					path = nativeLibPath + "windows" + bitsJVM;
 					break;
 				}
+				fileName = "ftd2xx";
 				path = path.replaceAll("//", FILE_SEPARATOR);
 			}
 			if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
