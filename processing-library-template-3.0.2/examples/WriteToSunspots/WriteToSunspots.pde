@@ -2,57 +2,49 @@ import com.hirschandmann.serial.d2xx.*;
 
 D2XX d2xx;
 
-int packetStart;
-int packetEnd;
+/*
+  Example of using the D2XX library to send LED data to a sunspot panel.
+*/
+
+// Sunspot panel expects packets such as = {startbit,address,red,green, blue, white,flag,endBit}
+byte[] packet = new byte[8];
+
 int startBit = 0xAA;
-int address  = 0xFF; // 0xFF for broadcast or the idividual tile address
-int green    = 0xAA;
-int red      = 0x12;
-int blue     = 0x32;
-int white    = 0x43;
+int address  = 0xFF; // 0xFF for broadcast or the number of the idividual tile address
+int red      = 40;
+int green    = 30;
+int blue     = 50;
+int white    = 20;
 int flag     = 0xFF; // 0xF0 to update indivudal LED, 0xFF to send colour to all LEDs, or LED address to send a colour to individual LED
 int endBit   = 0xCC;
-
-int[] buffer = {startBit, address, green, red, blue, white, flag, endBit};
-
-// packet = address,green,red, blue, white,flag,  end
-//            48    40    32    24    16    8
-//            FF    AA    12    32    43    FF    CC
-//          0xFFAA12 3243FFCC
-//          AAFFAA12 3243FFCC
 
 void setup() {
   size(400,400);
   smooth();
 
   d2xx = new D2XX(this, 0, 9600);
-
-  // startBit = startBit << 24;
-  // address  = address  << 16;
-  // green    = green    << 8;
-  //
-  // blue     = blue     << 24;
-  // white    = white    << 16;
-  // flag     = flag     << 8;
-  //
-  // packetStart = startBit | address | green | red;
-  // packetEnd =  blue | white | flag | endBit;
-
-  // println(packetStart + " " + packetEnd);
-  // println(hex(packetStart) + hex(packetEnd));
 }
 
 void draw() {
   background(0);
-  fill(255);
 
-  for (int x = 0; x < buffer.length; x++){
-    d2xx.write(buffer[x]);
-  }
+  red = int(map(mouseX,0,width,0,255));
+  green = int(map(mouseY,0,height,0,255));
+  send();
 
-
-  // d2xx.write(packetStart);
-  // d2xx.write(packetEnd);
+  fill(red,green,0);
 
   delay(100);
+}
+
+void send(){
+  packet[0] = (byte)startBit;
+  packet[1] = (byte)address;
+  packet[2] = (byte)red;
+  packet[3] = (byte)green;
+  packet[4] = (byte)blue;
+  packet[5] = (byte)white;
+  packet[6] = (byte)flag;
+  packet[7] = (byte)endBit;
+  d2xx.write(packet);
 }
