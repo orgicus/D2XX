@@ -268,7 +268,7 @@ public class D2XX implements Runnable{
 				path = path.replaceAll("//", FILE_SEPARATOR);
 			}
 			if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
-				fileName = "ftdxx.1.2.2";
+				fileName = "ftd2xxj";
 				path = nativeLibPath + "macosx" + bitsJVM;
 			}
 			if (this.parent.platform == PConstants.LINUX){ // if running on Linux platform
