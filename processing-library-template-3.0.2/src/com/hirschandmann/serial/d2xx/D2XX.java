@@ -275,6 +275,10 @@ public class D2XX implements Runnable{
 				isArm = osArch.contains("arm");
 				fileName = "ftd2xxj";
 				PATH_SEPARATOR = ":";
+				
+				// Solution to not have a dependacy on libraries in /usr/local/lib/
+				System.load(nativeLibPath + "arm7/libftd2xx.so");
+				
 				path = isArm ? nativeLibPath + "arm7" : nativeLibPath + "linux" + bitsJVM;
 			}
 			// make sure the determined path exists
