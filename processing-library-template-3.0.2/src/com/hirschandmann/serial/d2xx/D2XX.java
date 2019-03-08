@@ -276,8 +276,10 @@ public class D2XX implements Runnable{
 				fileName = "ftd2xxj";
 				PATH_SEPARATOR = ":";
 				
-				// Solution to not have a dependacy on libraries in /usr/local/lib/
-				System.load(nativeLibPath + "arm7/libftd2xx.so");
+				// RPi solution to not have a dependacy on libraries in /usr/local/lib/
+				if (isArm){
+					System.load(nativeLibPath + "arm7/libftd2xx.so");
+				}
 				
 				path = isArm ? nativeLibPath + "arm7" : nativeLibPath + "linux" + bitsJVM;
 			}
