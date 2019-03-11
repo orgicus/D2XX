@@ -30,11 +30,14 @@ public class D2XX implements Runnable{
 
 	// Device variables
 	private static Device[] devices;
-	private static Device dev;
+	private Device dev;
 	private Port port;
 	private int portIndex;
 	private int baudRate;
 	private boolean isOpen;
+	private DataBits dataBits = DataBits.DATA_BITS_8;
+	private StopBits stopBits = StopBits.STOP_BITS_1;
+	private Parity parity 	  = Parity.NONE;
 	
 	// Packet variables
 	private int byteToWrite = -1;
@@ -79,6 +82,13 @@ public class D2XX implements Runnable{
 					isOpen = true;
 					System.out.println("Device successfully openend");
 				}
+				
+				try {
+					this.parent.registerMethod("dispose", this);
+				} catch (Exception e){
+					e.printStackTrace();
+				}
+				
 			} else {
 				System.err.println("Trying to initialise with a portIndex larger than available ports!");
 			}
@@ -115,7 +125,7 @@ public class D2XX implements Runnable{
 				dev.open();
 				port = dev.getPort();
 				port.setBaudRate(baudRate);
-				port.setDataCharacteristics(DataBits.DATA_BITS_8, StopBits.STOP_BITS_2, Parity.NONE);
+				port.setDataCharacteristics(dataBits, stopBits, parity);
 				openingSuccess = true;
 			}catch(Exception e){
 				System.out.println("caught:");
@@ -129,11 +139,16 @@ public class D2XX implements Runnable{
 		return openingSuccess;
 	}
 
-	public void setDataCharacteristics(DataBits dataBits, StopBits stopBits, Parity parity){
-		try {
-			port.setDataCharacteristics(dataBits, stopBits, parity);			
-		} catch(FTD2xxException e){
-			e.printStackTrace();
+	public void setDataCharacteristics(DataBits newDataBits, StopBits newStopBits, Parity newParity){
+		if (newDataBits != null && newStopBits != null && newParity != null){
+			dataBits = newDataBits;
+			stopBits = newStopBits;
+			parity = newParity;
+			try {
+				port.setDataCharacteristics(dataBits, stopBits, parity);			
+			} catch(FTD2xxException e){
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -238,6 +253,15 @@ public class D2XX implements Runnable{
 			} catch (InterruptedException e){
 				throw new IllegalStateException(e);
 			}
+		}
+	}
+	
+	public void dispose(){
+		try {			
+			dev.close();
+			isOpen = false;
+		} catch (FTD2xxException e){
+			e.printStackTrace();
 		}
 	}
 	

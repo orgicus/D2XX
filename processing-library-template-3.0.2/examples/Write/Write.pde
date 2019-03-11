@@ -18,7 +18,6 @@ void draw() {
   background(0);
   fill(255);
   
-  
   d2xx.write(intPacket);
   
   d2xx.write(ByteArrayPacket);
