@@ -14,7 +14,9 @@ import processing.core.*;
 /**
  * Reads and writes serial data using the D2XX high speed serial communication library 
  *
- * @example Write 
+ * @example Write
+ * @example ListDevices
+ * @example WriteToSunspots 
  */
 
 public class D2XX implements Runnable{
@@ -42,13 +44,15 @@ public class D2XX implements Runnable{
 	// Packet variables
 	private int byteToWrite = -1;
 	private byte[] bytesToWrite;
+	private int writeOffset = -1;
+	private int writeLength = -1;
+
 	private final int NO_DATA = 0;
 	private final int BYTE = 1;
 	private final int BYTE_ARRAY = 2;
 	private final int BYTES_OFFSET = 3;
+	// Toggle to trigger writing a particular type of data packet
 	private int hasNewData = NO_DATA;
-	private int writeOffset = -1;
-	private int writeLength = -1;
 
 	// Running logic variables
 	private boolean threadActive = true;
@@ -82,13 +86,11 @@ public class D2XX implements Runnable{
 					isOpen = true;
 					System.out.println("Device successfully openend");
 				}
-				
 				try {
 					this.parent.registerMethod("dispose", this);
 				} catch (Exception e){
 					e.printStackTrace();
 				}
-				
 			} else {
 				System.err.println("Trying to initialise with a portIndex larger than available ports!");
 			}
@@ -97,6 +99,13 @@ public class D2XX implements Runnable{
 		}
 	}
 
+	
+	/**
+	 * This method scans and returns a list of connected serial 
+	 * devices of type - "unknown" 
+	 * 
+	 * @return Devices[] - the list of devices discovered
+	 */
 	private static Device[] listDevices(){
 		Device[] deviceList = null;
 		if (!returnCachedDeviceList){			
@@ -115,30 +124,48 @@ public class D2XX implements Runnable{
 		}
 		return deviceList;
 	}
-	
+
+	/** Finds the requested device in the device list and attempts
+	 *  to open a connection. 
+	 * 
+	 * @return boolean - returns whether or not the suggested device 
+	 * 					 was successfully opened 
+	 */
 	public boolean openDevice(){
-		boolean openingSuccess;
+		boolean openingSuccess = false;
 		int numDevices = devices.length;
-		if(numDevices > 0 && portIndex < numDevices){
-			dev = devices[portIndex];
-			try{
-				dev.open();
-				port = dev.getPort();
-				port.setBaudRate(baudRate);
-				port.setDataCharacteristics(dataBits, stopBits, parity);
-				openingSuccess = true;
-			}catch(Exception e){
-				System.out.println("caught:");
-				e.printStackTrace();
+		if (nativeLoaded){
+			if(numDevices > 0 && portIndex < numDevices){
+				dev = devices[portIndex];
+				try{
+					dev.open();
+					port = dev.getPort();
+					port.setBaudRate(baudRate);
+					
+//					port.setDataCharacteristics(dataBits, stopBits, parity);
+					port.setDataCharacteristics(DataBits.DATA_BITS_8, StopBits.STOP_BITS_2, Parity.NONE);
+
+					
+					openingSuccess = true;
+				}catch(Exception e){
+					System.out.println("caught:");
+					e.printStackTrace();
+					openingSuccess = false;
+				}
+			} else {
+				System.err.println("Trying to initialise with a portIndex larger than available ports!");
 				openingSuccess = false;
 			}
-		} else {
-			System.err.println("Trying to initialise with a portIndex larger than available ports!");
-			openingSuccess = false;
 		}
 		return openingSuccess;
 	}
 
+	/**Method to change the DataBits, StopBits and parity of the connection. 
+	 * 
+	 * @param newDataBits 
+	 * @param newStopBits
+	 * @param newParity
+	 */
 	public void setDataCharacteristics(DataBits newDataBits, StopBits newStopBits, Parity newParity){
 		if (newDataBits != null && newStopBits != null && newParity != null){
 			dataBits = newDataBits;
@@ -152,6 +179,10 @@ public class D2XX implements Runnable{
 		}
 	}
 	
+	/**Sending an integer to the connected device
+	 * 
+	 * @param bytes
+	 */
 	public void write(int bytes){
 		if (bytes > 0){
 			byteToWrite = constrain(bytes, 0, 255);
@@ -161,6 +192,10 @@ public class D2XX implements Runnable{
 		}
 	}
 	
+	/** Sending an array of bytes to the connected device
+	 * 
+	 * @param bytes
+	 */
 	public void write(byte[] bytes){
 		if (bytes != null){
 			bytesToWrite = bytes;
@@ -170,6 +205,13 @@ public class D2XX implements Runnable{
 		}
 	}
 	
+	/**Sending a particular selection of an array of bytes to the
+	 * connected device.
+	 * 
+	 * @param buffer
+	 * @param offset
+	 * @param length
+	 */
 	public void write(byte[] buffer, int offset, int length){
 		if (buffer != null && offset > 0 && length > 0){
 			bytesToWrite = buffer;
@@ -181,6 +223,10 @@ public class D2XX implements Runnable{
 		}
 	}
 	
+	/** Reading available data from the connected device
+	 * 
+	 * @return int - the read data
+	 */
 	public int read(){
 		int readData = 0;
 		try {
@@ -191,6 +237,11 @@ public class D2XX implements Runnable{
 		return readData;
 	}
 	
+	/** Reading a target amount of the available data from the connected device
+	 * 
+	 * @param target
+	 * @return int - the read data
+	 */
 	public int read(byte[] target){
 		int readData = 0;
 		try {
@@ -201,6 +252,14 @@ public class D2XX implements Runnable{
 		return readData;
 	}
 	
+	/** Reading a specific amount of the targeted data from the connected device
+	 * 
+	 * 
+	 * @param buffer
+	 * @param offset
+	 * @param length
+	 * @return int - the read data
+	 */
 	public int read(byte[] buffer, int offset, int length){
 		int readData = 0;
 		try {
@@ -211,10 +270,18 @@ public class D2XX implements Runnable{
 		return readData;
 	}
 	
+	/** Returns the connection status of the device
+	 * 
+	 * @return boolean - is the device connection open
+	 */
 	public boolean isOpen(){
 		return isOpen;
 	}
 	
+	/** Main method that runs continuously in it's own thread. 
+	 *  If there is data ready to send it checks the type of data packet
+	 *  and sends it to the connected device
+	 */
 	public void run(){
 		while (threadActive){
 			if (hasNewData != NO_DATA){
@@ -256,21 +323,49 @@ public class D2XX implements Runnable{
 		}
 	}
 	
+	/**
+	 *  Closes connection to the device on shutdown of the program
+	 */
 	public void dispose(){
 		try {			
 			dev.close();
 			isOpen = false;
+			System.out.println("Connection closed!");
 		} catch (FTD2xxException e){
 			e.printStackTrace();
 		}
 	}
 	
+	/** A handy function to constrain a value's number between a max and min
+	 * 
+	 * @param val
+	 * @param min
+	 * @param max
+	 * @return
+	 */
 	private int constrain(int val, int min, int max){
 		return Math.min(Math.max(val, min), max);
 	}
 	
-	// Code heavily 'inspired by' OpenCV's platform specific library initialising: 
-	// https://github.com/atduskgreg/opencv-processing/blob/master/src/gab/opencv/OpenCV.java#L395
+	/** A method to remove any conflicting native USB serial drivers
+	 * 
+	 */
+	private void removeDrivers(){
+		if (this.parent.platform == PConstants.LINUX){
+			this.parent.exec("sudo", "rmmod", "ftdi_sio");
+			this.parent.exec("sudo", "rmmod", "usbserial");
+		} else if (this.parent.platform == PConstants.MACOSX){
+			this.parent.exec("sudo", "kextunload", "-b","com.apple.AppleFTDISerial");
+		}
+	}
+	
+	/** A function to load the appropriate ftd2xx library based on the
+	 * platform's operating system. Currently set up for macosx64, windows32, windows64, arm6 and arm7
+	 * 
+	 * initNative, getLibPath and addLibraryPath functions heavily 'inspired by' OpenCV's platform
+	 * specific library loading:
+	 * https://github.com/atduskgreg/opencv-processing/blob/master/src/gab/opencv/OpenCV.java#L395
+	 */
 	private void initNative(){
 		if (!nativeLoaded){
 			int bitsJVM = this.parent.parseInt(System.getProperty("sun.arch.data.model"));
@@ -280,18 +375,12 @@ public class D2XX implements Runnable{
 			String fileName = null;
 			
 			if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
-				switch(bitsJVM) {
-				case 32:
-					path = nativeLibPath + "windows" + bitsJVM;
-					break;
-				case 64:
-					path = nativeLibPath + "windows" + bitsJVM;
-					break;
-				}
+				path = nativeLibPath + "windows" + bitsJVM;
 				fileName = "ftd2xx";
 				path = path.replaceAll("//", FILE_SEPARATOR);
 			}
 			if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
+				removeDrivers();
 				fileName = "ftd2xxj";
 				path = nativeLibPath + "macosx" + bitsJVM;
 			}
@@ -299,9 +388,11 @@ public class D2XX implements Runnable{
 				isArm = osArch.contains("arm");
 				fileName = "ftd2xxj";
 				PATH_SEPARATOR = ":";
-				
-				// RPi solution to not have a dependacy on libraries in /usr/local/lib/
+
 				if (isArm){
+					// removing native usb serial drivers
+					removeDrivers();
+					// RPi solution to not have a dependacy on libraries in /usr/local/lib/
 					System.load(nativeLibPath + "arm7/libftd2xx.so");
 				}
 				
@@ -316,23 +407,30 @@ public class D2XX implements Runnable{
 			} catch (NullPointerException e){
 				System.err.println("Cannot load local version of D2XX!");
 				e.printStackTrace();
+				nativeLoaded = false;
 			}
 			// add library path to java.library.path
 			try {
 				addLibraryPath(nativeLibPath);
 			} catch (Exception e){
 				e.printStackTrace();
+				nativeLoaded = false;
 			}
 			// load the desired library
 			try {
 				System.loadLibrary(fileName);
+				nativeLoaded = true;
 			} catch (UnsatisfiedLinkError e) {
 				e.printStackTrace();
+				nativeLoaded = false;
 			}
-			nativeLoaded = true;
 		}
 	}
 	
+	/** Returns the path to the current operating directory of this library
+	 * 
+	 * @return String - path to the current operating directory of this library
+	 */
 	private String getLibPath() {
 		URL url = this.getClass().getResource("D2XX.class");
 		if (url!= null){
@@ -354,6 +452,11 @@ public class D2XX implements Runnable{
 		return "";
 	}
 	
+	/** Adds the path determined by initNative() to the java.library.path
+	 * 
+	 * @param path - the path to be added to java.library.path
+	 * @throws Exception 
+	 */
 	private static void addLibraryPath(String path) throws Exception {
 		String originalPath = System.getProperty("java.library.path");
 		
@@ -373,4 +476,3 @@ public class D2XX implements Runnable{
 		sysPathsField.set(null, null);
 	}	
 }
-

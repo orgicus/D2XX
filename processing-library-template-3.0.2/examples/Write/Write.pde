@@ -18,11 +18,15 @@ void draw() {
   background(0);
   fill(255);
   
-  d2xx.write(intPacket);
+  //d2xx.write(intPacket);
+  
+  // or
   
   d2xx.write(ByteArrayPacket);
   
-  d2xx.write(ByteArrayPacket, packetOffset, packetLength);
+  // or
+  
+  //d2xx.write(ByteArrayPacket, packetOffset, packetLength);
 
   delay(100);
   
