@@ -4,8 +4,6 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.net.URL;
 
-import javax.print.DocFlavor.BYTE_ARRAY;
-
 import com.ftdichip.ftd2xx.*;
 import com.ftdichip.ftd2xx.Device;
 
@@ -77,13 +75,17 @@ public class D2XX implements Runnable{
 			this.portIndex = portIndex;
 			this.baudRate = baudRate;
 			initNative();
-			
-		    new Thread(this).start();
 		    
-			this.devices = listDevices();
-			if(devices.length > 0 && portIndex < devices.length){
+		    listDevices();
+
+		    if (D2XX.devices == null){
+		    	System.err.println("error listing devices");
+		    }
+		    
+			if(D2XX.devices.length > 0 && portIndex < D2XX.devices.length){
 				if (openDevice()){
 					isOpen = true;
+					new Thread(this).start();
 					System.out.println("Device successfully openend");
 				}
 				try {
@@ -107,22 +109,18 @@ public class D2XX implements Runnable{
 	 * @return Devices[] - the list of devices discovered
 	 */
 	private static Device[] listDevices(){
-		Device[] deviceList = null;
 		if (!returnCachedDeviceList){			
 			try {
-				deviceList = Service.listDevicesByType(DeviceType.FT_DEVICE_UNKNOWN);
+				D2XX.devices = Service.listDevicesByType(DeviceType.FT_DEVICE_UNKNOWN);
 				returnCachedDeviceList = true;
-				System.out.println("Number of devices: " + deviceList.length);
-				for (int x = 0; x < deviceList.length; x++){
-					System.out.println(deviceList[x]);
+				for (int x = 0; x < D2XX.devices.length; x++){
+					System.out.println(D2XX.devices[x]);
 				}
 			} catch (Exception e){
 				e.printStackTrace();
 			}
-		} else {
-			deviceList = devices;
 		}
-		return deviceList;
+		return D2XX.devices;
 	}
 
 	/** Finds the requested device in the device list and attempts
@@ -133,19 +131,13 @@ public class D2XX implements Runnable{
 	 */
 	public boolean openDevice(){
 		boolean openingSuccess = false;
-		int numDevices = devices.length;
 		if (nativeLoaded){
-			if(numDevices > 0 && portIndex < numDevices){
+			if (dev == null){
 				dev = devices[portIndex];
 				try{
 					dev.open();
 					port = dev.getPort();
 					port.setBaudRate(baudRate);
-					
-//					port.setDataCharacteristics(dataBits, stopBits, parity);
-					port.setDataCharacteristics(DataBits.DATA_BITS_8, StopBits.STOP_BITS_2, Parity.NONE);
-
-					
 					openingSuccess = true;
 				}catch(Exception e){
 					System.out.println("caught:");
@@ -153,8 +145,7 @@ public class D2XX implements Runnable{
 					openingSuccess = false;
 				}
 			} else {
-				System.err.println("Trying to initialise with a portIndex larger than available ports!");
-				openingSuccess = false;
+				System.err.println("Trying to open device thats already open!");
 			}
 		}
 		return openingSuccess;
@@ -183,9 +174,9 @@ public class D2XX implements Runnable{
 	 * 
 	 * @param bytes
 	 */
-	public void write(int bytes){
-		if (bytes > 0){
-			byteToWrite = constrain(bytes, 0, 255);
+	public void write(int dataByte){
+		if (dataByte > 0){
+			byteToWrite = PApplet.constrain(dataByte, 0, 255);
 			hasNewData = BYTE;
 		} else {
 			System.err.println("Attempting to write null bytes!");
@@ -196,9 +187,9 @@ public class D2XX implements Runnable{
 	 * 
 	 * @param bytes
 	 */
-	public void write(byte[] bytes){
-		if (bytes != null){
-			bytesToWrite = bytes;
+	public void write(byte[] dataBytes){
+		if (dataBytes != null){
+			bytesToWrite = dataBytes;
 			hasNewData = BYTE_ARRAY;			
 		} else {
 			System.err.println("Attempting to write null bytes!");
@@ -334,17 +325,6 @@ public class D2XX implements Runnable{
 		} catch (FTD2xxException e){
 			e.printStackTrace();
 		}
-	}
-	
-	/** A handy function to constrain a value's number between a max and min
-	 * 
-	 * @param val
-	 * @param min
-	 * @param max
-	 * @return
-	 */
-	private int constrain(int val, int min, int max){
-		return Math.min(Math.max(val, min), max);
 	}
 	
 	/** A method to remove any conflicting native USB serial drivers
