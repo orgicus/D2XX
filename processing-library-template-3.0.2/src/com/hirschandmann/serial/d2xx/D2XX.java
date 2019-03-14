@@ -1,6 +1,8 @@
 package com.hirschandmann.serial.d2xx;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
 
@@ -40,15 +42,17 @@ public class D2XX implements Runnable{
 	private Parity parity 	  = Parity.NONE;
 	
 	// Packet variables
+	protected ByteArrayOutputStream bytesToWrite = new ByteArrayOutputStream();
 	private int byteToWrite = -1;
-	private byte[] bytesToWrite;
 	private int writeOffset = -1;
 	private int writeLength = -1;
-
-	private final int NO_DATA = 0;
+	
+	private int PACKET_TYPE = 4;
 	private final int BYTE = 1;
-	private final int BYTE_ARRAY = 2;
+	private final int BYTES = 2;
 	private final int BYTES_OFFSET = 3;
+	private final int NO_DATA = 4;
+
 	// Toggle to trigger writing a particular type of data packet
 	private int hasNewData = NO_DATA;
 
@@ -177,7 +181,7 @@ public class D2XX implements Runnable{
 	public void write(int dataByte){
 		if (dataByte > 0){
 			byteToWrite = PApplet.constrain(dataByte, 0, 255);
-			hasNewData = BYTE;
+			PACKET_TYPE = BYTE;
 		} else {
 			System.err.println("Attempting to write null bytes!");
 		}
@@ -189,8 +193,12 @@ public class D2XX implements Runnable{
 	 */
 	public void write(byte[] dataBytes){
 		if (dataBytes != null){
-			bytesToWrite = dataBytes;
-			hasNewData = BYTE_ARRAY;			
+			try {
+				bytesToWrite.write(dataBytes);
+			} catch(IOException e){
+				e.printStackTrace();
+			}
+			PACKET_TYPE = BYTES;							
 		} else {
 			System.err.println("Attempting to write null bytes!");
 		}
@@ -205,10 +213,14 @@ public class D2XX implements Runnable{
 	 */
 	public void write(byte[] buffer, int offset, int length){
 		if (buffer != null && offset > 0 && length > 0){
-			bytesToWrite = buffer;
+			try {
+				bytesToWrite.write(buffer);
+			} catch(IOException e){
+				e.printStackTrace();
+			}
 			writeOffset = offset;
 			writeLength = length;
-			hasNewData = BYTES_OFFSET;
+			PACKET_TYPE = BYTES_OFFSET;
 		}else{
 			System.err.println("Attempting to write null information!");
 		}
@@ -275,36 +287,40 @@ public class D2XX implements Runnable{
 	 */
 	public void run(){
 		while (threadActive){
-			if (hasNewData != NO_DATA){
-				if (dev != null){
-					if (hasNewData == BYTE){
+			if (dev != null){
+				switch(PACKET_TYPE) {
+					case BYTE:
 						try {
 							dev.write(byteToWrite);
 							byteToWrite = -1;
 						} catch (FTD2xxException e){
 							e.printStackTrace();
 						}
-					} else if (hasNewData == BYTE_ARRAY){
+						PACKET_TYPE = NO_DATA;
+						break;
+					case BYTES:
 						try {
-							dev.write(bytesToWrite);
-							bytesToWrite = null;
+							dev.write(bytesToWrite.toByteArray());
+							bytesToWrite.reset();
 						} catch (FTD2xxException e){
 							e.printStackTrace();
 						}
-					} else if (hasNewData == BYTES_OFFSET){
+						PACKET_TYPE = NO_DATA;
+						break;
+					case BYTES_OFFSET:
 						try {
-							dev.write(bytesToWrite, writeOffset, writeLength);
-							bytesToWrite = null;
+							dev.write(bytesToWrite.toByteArray(), writeOffset, writeLength);
+							bytesToWrite.reset();
 							writeOffset = -1;
 							writeLength = -1;
 						} catch (FTD2xxException e){
 							e.printStackTrace();
 						}
-					}
-				} else {
-					System.err.println("Trying to send data to null device!");
+						PACKET_TYPE = NO_DATA;
+						break;
+					case NO_DATA:
+						break;
 				}
-				hasNewData = NO_DATA;
 			}
 			try{			
 				Thread.sleep(SLEEP_TIME);
