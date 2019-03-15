@@ -351,7 +351,7 @@ public class D2XX implements Runnable{
 			this.parent.exec("sudo", "rmmod", "ftdi_sio");
 			this.parent.exec("sudo", "rmmod", "usbserial");
 		} else if (this.parent.platform == PConstants.MACOSX){
-			this.parent.exec("sudo", "kextunload", "-b","com.apple.AppleFTDISerial");
+			this.parent.exec("sudo", "kextunload", "-b","com.apple.driver.AppleUSBFTDI");
 		}
 	}
 	
