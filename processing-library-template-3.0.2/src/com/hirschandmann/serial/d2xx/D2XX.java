@@ -7,7 +7,6 @@ import java.lang.reflect.Field;
 import java.net.URL;
 
 import com.ftdichip.ftd2xx.*;
-import com.ftdichip.ftd2xx.Device;
 
 import processing.core.*;
 
@@ -105,7 +104,6 @@ public class D2XX implements Runnable{
 		}
 	}
 
-	
 	/**
 	 * This method scans and returns a list of connected serial 
 	 * devices of type - "unknown" 
@@ -120,7 +118,7 @@ public class D2XX implements Runnable{
 				for (int x = 0; x < D2XX.devices.length; x++){
 					System.out.println(D2XX.devices[x]);
 				}
-			} catch (Exception e){
+			} catch (FTD2xxException e){
 				e.printStackTrace();
 			}
 		}
