@@ -46,14 +46,11 @@ public class D2XX implements Runnable{
 	private int writeOffset = -1;
 	private int writeLength = -1;
 	
-	private int PACKET_TYPE = 4;
 	private final int BYTE = 1;
 	private final int BYTES = 2;
 	private final int BYTES_OFFSET = 3;
 	private final int NO_DATA = 4;
-
-	// Toggle to trigger writing a particular type of data packet
-	private int hasNewData = NO_DATA;
+	private int PACKET_TYPE = NO_DATA;
 
 	// Running logic variables
 	private boolean threadActive = true;
@@ -332,6 +329,7 @@ public class D2XX implements Runnable{
 	 *  Closes connection to the device on shutdown of the program
 	 */
 	public void dispose(){
+		// close connection to D2XX device
 		try {			
 			dev.close();
 			isOpen = false;
@@ -339,10 +337,14 @@ public class D2XX implements Runnable{
 		} catch (FTD2xxException e){
 			e.printStackTrace();
 		}
+		// Reload drivers that were unloaded at initialisation
+		if (this.parent.platform == PConstants.MACOSX){
+			this.parent.exec("sudo", "kextload", "-b","com.apple.driver.AppleUSBFTDI");
+		}
 	}
 	
-	/** A method to remove any conflicting native USB serial drivers
-	 * 
+	/** 
+	 * A method to remove any conflicting native USB serial drivers
 	 */
 	private void removeDrivers(){
 		if (this.parent.platform == PConstants.LINUX){
