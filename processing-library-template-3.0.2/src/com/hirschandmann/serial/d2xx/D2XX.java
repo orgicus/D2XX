@@ -3,6 +3,8 @@ package com.hirschandmann.serial.d2xx;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
 import java.lang.reflect.Field;
 import java.net.URL;
 
@@ -339,7 +341,9 @@ public class D2XX implements Runnable{
 		}
 		// Reload drivers that were unloaded at initialisation
 		if (this.parent.platform == PConstants.MACOSX){
-			this.parent.exec("sudo", "kextload", "-b","com.apple.driver.AppleUSBFTDI");
+			if (!hasNativeDrivers()){
+				this.parent.exec("sudo", "kextload", "-b","com.apple.driver.AppleUSBFTDI");				
+			}
 		}
 	}
 	
@@ -351,8 +355,48 @@ public class D2XX implements Runnable{
 			this.parent.exec("sudo", "rmmod", "ftdi_sio");
 			this.parent.exec("sudo", "rmmod", "usbserial");
 		} else if (this.parent.platform == PConstants.MACOSX){
-			this.parent.exec("sudo", "kextunload", "-b","com.apple.driver.AppleUSBFTDI");
+			if (hasNativeDrivers()){
+				this.parent.exec("sudo", "kextunload", "-b","com.apple.driver.AppleUSBFTDI");				
+			}
 		}
+	}
+	
+	/**
+	 * A method to check if the "com.apple.driver.AppleUSBFTDI" driver
+	 * already exists on the system. Snippet found from stackoverflow:
+	 * https://stackoverflow.com/questions/5711084/java-runtime-getruntime-getting-output-from-executing-a-command-line-program
+	 * 
+	 * @return driverStatus - boolean value for presence of USBFTDI drivers
+	 */
+	private boolean hasNativeDrivers(){
+		boolean driverStatus = false;
+		
+		if (this.parent.platform == PConstants.MACOSX){
+			Process proc = null;
+			Runtime rt = Runtime.getRuntime();
+			try {
+				proc = rt.exec("kextstat");
+			}catch (IOException e) {
+				e.printStackTrace();
+			}
+			BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+			String s = null;
+			String driverlist = null;
+			try {
+			    while ((s = stdInput.readLine()) != null) {
+			    	driverlist += s;
+			    }
+			}catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			if (driverlist.indexOf("AppleUSBFTDI") >= 0){
+				return true;
+			} else {
+				return false;
+			}
+		}
+		return driverStatus;
 	}
 	
 	/** A function to load the appropriate ftd2xx library based on the
