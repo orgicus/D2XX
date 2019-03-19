@@ -27,7 +27,4 @@ void draw() {
   // or
   
   //d2xx.write(ByteArrayPacket, packetOffset, packetLength);
-
-  delay(100);
-  
 }	

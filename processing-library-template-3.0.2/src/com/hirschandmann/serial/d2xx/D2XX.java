@@ -371,6 +371,8 @@ public class D2XX implements Runnable{
 	private boolean hasNativeDrivers(){
 		boolean driverStatus = false;
 		
+		// TODO add linux equivelent
+		
 		if (this.parent.platform == PConstants.MACOSX){
 			Process proc = null;
 			Runtime rt = Runtime.getRuntime();
