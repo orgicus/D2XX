@@ -124,8 +124,9 @@ public class D2XX implements Runnable{
 		return D2XX.devices;
 	}
 
-	/** Finds the requested device in the device list and attempts
-	 *  to open a connection. 
+	/**
+	 * Finds the requested device in the device list and attempts
+	 * to open a connection. 
 	 * 
 	 * @return boolean - returns whether or not the suggested device 
 	 * 					 was successfully opened 
@@ -152,7 +153,8 @@ public class D2XX implements Runnable{
 		return openingSuccess;
 	}
 
-	/**Method to change the DataBits, StopBits and parity of the connection. 
+	/**
+	 * Method to change the DataBits, StopBits and parity of the connection. 
 	 * 
 	 * @param newDataBits 
 	 * @param newStopBits
@@ -171,7 +173,8 @@ public class D2XX implements Runnable{
 		}
 	}
 	
-	/**Sending an integer to the connected device
+	/**
+	 * Sending an integer to the connected device
 	 * 
 	 * @param bytes
 	 */
@@ -184,7 +187,8 @@ public class D2XX implements Runnable{
 		}
 	}
 	
-	/** Sending an array of bytes to the connected device
+	/**
+	 * Sending an array of bytes to the connected device
 	 * 
 	 * @param bytes
 	 */
@@ -201,7 +205,8 @@ public class D2XX implements Runnable{
 		}
 	}
 	
-	/**Sending a particular selection of an array of bytes to the
+	/**
+	 * Sending a particular selection of an array of bytes to the
 	 * connected device.
 	 * 
 	 * @param buffer
@@ -223,7 +228,8 @@ public class D2XX implements Runnable{
 		}
 	}
 	
-	/** Reading available data from the connected device
+	/** 
+	 * Reading available data from the connected device
 	 * 
 	 * @return int - the read data
 	 */
@@ -237,7 +243,8 @@ public class D2XX implements Runnable{
 		return readData;
 	}
 	
-	/** Reading a target amount of the available data from the connected device
+	/** 
+	 * Reading a target amount of the available data from the connected device
 	 * 
 	 * @param target
 	 * @return int - the read data
@@ -252,8 +259,8 @@ public class D2XX implements Runnable{
 		return readData;
 	}
 	
-	/** Reading a specific amount of the targeted data from the connected device
-	 * 
+	/** 
+	 * Reading a specific amount of the targeted data from the connected device
 	 * 
 	 * @param buffer
 	 * @param offset
@@ -278,7 +285,8 @@ public class D2XX implements Runnable{
 		return isOpen;
 	}
 	
-	/** Main method that runs continuously in it's own thread. 
+	/** 
+	 * Main method that runs continuously in it's own thread. 
 	 *  If there is data ready to send it checks the type of data packet
 	 *  and sends it to the connected device
 	 */
@@ -290,6 +298,7 @@ public class D2XX implements Runnable{
 						try {
 							dev.write(byteToWrite);
 							byteToWrite = -1;
+							dev.purgeTransmitBuffer();
 						} catch (FTD2xxException e){
 							e.printStackTrace();
 						}
@@ -299,6 +308,7 @@ public class D2XX implements Runnable{
 						try {
 							dev.write(bytesToWrite.toByteArray());
 							bytesToWrite.reset();
+							dev.purgeTransmitBuffer();
 						} catch (FTD2xxException e){
 							e.printStackTrace();
 						}
@@ -308,6 +318,7 @@ public class D2XX implements Runnable{
 						try {
 							dev.write(bytesToWrite.toByteArray(), writeOffset, writeLength);
 							bytesToWrite.reset();
+							dev.purgeTransmitBuffer();
 							writeOffset = -1;
 							writeLength = -1;
 						} catch (FTD2xxException e){
@@ -340,9 +351,12 @@ public class D2XX implements Runnable{
 			e.printStackTrace();
 		}
 		// Reload drivers that were unloaded at initialisation
-		if (this.parent.platform == PConstants.MACOSX){
-			if (!hasNativeDrivers()){
+		if (!hasNativeDrivers()){
+			if (this.parent.platform == PConstants.MACOSX){
 				this.parent.exec("sudo", "kextload", "-b","com.apple.driver.AppleUSBFTDI");				
+			}else if (this.parent.platform == PConstants.LINUX){
+				this.parent.exec("sudo", "modprobe", "ftdi_sio");
+				this.parent.exec("sudo", "modprobe", "usbserial");				
 			}
 		}
 	}
@@ -352,8 +366,10 @@ public class D2XX implements Runnable{
 	 */
 	private void removeDrivers(){
 		if (this.parent.platform == PConstants.LINUX){
-			this.parent.exec("sudo", "rmmod", "ftdi_sio");
-			this.parent.exec("sudo", "rmmod", "usbserial");
+			if (hasNativeDrivers()){
+				this.parent.exec("sudo", "rmmod", "ftdi_sio");
+				this.parent.exec("sudo", "rmmod", "usbserial");
+			}
 		} else if (this.parent.platform == PConstants.MACOSX){
 			if (hasNativeDrivers()){
 				this.parent.exec("sudo", "kextunload", "-b","com.apple.driver.AppleUSBFTDI");				
@@ -370,17 +386,26 @@ public class D2XX implements Runnable{
 	 */
 	private boolean hasNativeDrivers(){
 		boolean driverStatus = false;
-		
-		// TODO add linux equivelent
-		
-		if (this.parent.platform == PConstants.MACOSX){
+		if (this.parent.platform == PConstants.MACOSX || this.parent.platform == PConstants.MACOSX){
 			Process proc = null;
 			Runtime rt = Runtime.getRuntime();
-			try {
-				proc = rt.exec("kextstat");
-			}catch (IOException e) {
-				e.printStackTrace();
+	
+			if (this.parent.platform == PConstants.LINUX){
+				try {
+					String[] command = {"sudo", "lsmod"};
+					proc = rt.exec(command);
+				}catch (IOException e) {
+					e.printStackTrace();
+				}			
+	
+			} else if (this.parent.platform == PConstants.MACOSX){
+				try {
+					proc = rt.exec("kextstat");
+				}catch (IOException e) {
+					e.printStackTrace();
+				}			
 			}
+			
 			BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 			String s = null;
 			String driverlist = null;
@@ -392,16 +417,25 @@ public class D2XX implements Runnable{
 				e.printStackTrace();
 			}
 			
-			if (driverlist.indexOf("AppleUSBFTDI") >= 0){
-				return true;
-			} else {
-				return false;
-			}
+			if (this.parent.platform == PConstants.LINUX){
+				if (driverlist.indexOf("ftdi_sio") >= 0 || driverlist.indexOf("usberial") >= 0){
+					return true;
+				} else {
+					return false;
+				}
+			} else if (this.parent.platform == PConstants.MACOSX){
+				if (driverlist.indexOf("AppleUSBFTDI") >= 0){
+					return true;
+				} else {
+					return false;
+				}					
+			} 
 		}
 		return driverStatus;
 	}
 	
-	/** A function to load the appropriate ftd2xx library based on the
+	/** 
+	 * A function to load the appropriate ftd2xx library based on the
 	 * platform's operating system. Currently set up for macosx64, windows32, windows64, arm6 and arm7
 	 * 
 	 * initNative, getLibPath and addLibraryPath functions heavily 'inspired by' OpenCV's platform
@@ -469,7 +503,8 @@ public class D2XX implements Runnable{
 		}
 	}
 	
-	/** Returns the path to the current operating directory of this library
+	/** 
+	 * Returns the path to the current operating directory of this library
 	 * 
 	 * @return String - path to the current operating directory of this library
 	 */
@@ -494,7 +529,8 @@ public class D2XX implements Runnable{
 		return "";
 	}
 	
-	/** Adds the path determined by initNative() to the java.library.path
+	/** 
+	 * Adds the path determined by initNative() to the java.library.path
 	 * 
 	 * @param path - the path to be added to java.library.path
 	 * @throws Exception 
