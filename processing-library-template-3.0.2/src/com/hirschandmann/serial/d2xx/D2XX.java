@@ -88,7 +88,9 @@ public class D2XX implements Runnable{
 				if (openDevice()){
 					isOpen = true;
 					new Thread(this).start();
-					System.out.println("Device successfully openend");
+					System.out.println("Device successfully opened");
+				} else {
+					System.err.println("Device NOT opened");
 				}
 				try {
 					this.parent.registerMethod("dispose", this);
@@ -107,21 +109,16 @@ public class D2XX implements Runnable{
 	 * This method scans and returns a list of connected serial 
 	 * devices of type - "unknown" 
 	 * 
-	 * @return Devices[] - the list of devices discovered
 	 */
-	private static Device[] listDevices(){
+	private static void listDevices(){
 		if (!returnCachedDeviceList){			
 			try {
 				D2XX.devices = Service.listDevicesByType(DeviceType.FT_DEVICE_UNKNOWN);
 				returnCachedDeviceList = true;
-				for (int x = 0; x < D2XX.devices.length; x++){
-					System.out.println(D2XX.devices[x]);
-				}
 			} catch (FTD2xxException e){
 				e.printStackTrace();
 			}
 		}
-		return D2XX.devices;
 	}
 
 	/**
@@ -135,11 +132,12 @@ public class D2XX implements Runnable{
 		boolean openingSuccess = false;
 		if (nativeLoaded){
 			if (dev == null){
-				dev = devices[portIndex];
+				dev = D2XX.devices[portIndex];
 				try{
 					dev.open();
 					port = dev.getPort();
 					port.setBaudRate(baudRate);
+					setDataCharacteristics(dataBits, stopBits, parity);
 					openingSuccess = true;
 				}catch(Exception e){
 					System.out.println("caught:");
@@ -149,6 +147,8 @@ public class D2XX implements Runnable{
 			} else {
 				System.err.println("Trying to open device thats already open!");
 			}
+		} else {
+			System.err.println("Native library unsuccessfully loaded!");
 		}
 		return openingSuccess;
 	}
@@ -285,6 +285,27 @@ public class D2XX implements Runnable{
 		return isOpen;
 	}
 	
+	/**
+	 * Method to send byte arrays to the device without threading.
+	 * 
+	 * @param packet - byte array to send 
+	 */
+	public void sendBytes(byte[] packet){
+		if (dev != null){
+			if (packet != null){
+				try{
+					dev.write(packet);
+				}catch(FTD2xxException e){
+					e.printStackTrace();
+				}
+			} else {
+				System.err.println("Trying to send null data!");
+			}
+		} else {
+			System.err.println("Trying to send bytes to Null device!");
+		}
+	}
+	
 	/** 
 	 * Main method that runs continuously in it's own thread. 
 	 *  If there is data ready to send it checks the type of data packet
@@ -386,7 +407,7 @@ public class D2XX implements Runnable{
 	 */
 	private boolean hasNativeDrivers(){
 		boolean driverStatus = false;
-		if (this.parent.platform == PConstants.MACOSX || this.parent.platform == PConstants.MACOSX){
+		if (this.parent.platform == PConstants.MACOSX || this.parent.platform == PConstants.LINUX){
 			Process proc = null;
 			Runtime rt = Runtime.getRuntime();
 	
@@ -450,55 +471,59 @@ public class D2XX implements Runnable{
 			String path = null;
 			String fileName = null;
 			
-			if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
-				path = nativeLibPath + "windows" + bitsJVM;
-				fileName = "ftd2xx";
-				path = path.replaceAll("//", FILE_SEPARATOR);
-			}
-			if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
-				removeDrivers();
-				fileName = "ftd2xxj";
-				path = nativeLibPath + "macosx" + bitsJVM;
-			}
-			if (this.parent.platform == PConstants.LINUX){ // if running on Linux platform
-				isArm = osArch.contains("arm");
-				fileName = "ftd2xxj";
-				PATH_SEPARATOR = ":";
-
-				if (isArm){
-					// removing native usb serial drivers
+			if (nativeLibPath != null){
+				if (this.parent.platform == PConstants.WINDOWS){ // If running on a Windows platform
+					path = nativeLibPath + "windows" + bitsJVM;
+					fileName = "ftd2xx";
+					path = path.replaceAll("//", FILE_SEPARATOR);
+				}
+				if (this.parent.platform == PConstants.MACOSX){ // if running on Mac platform
 					removeDrivers();
-					// RPi solution to not have a dependacy on libraries in /usr/local/lib/
-					System.load(nativeLibPath + "arm7/libftd2xx.so");
+					fileName = "ftd2xxj";
+					path = nativeLibPath + "macosx" + bitsJVM;
 				}
-				
-				path = isArm ? nativeLibPath + "arm7" : nativeLibPath + "linux" + bitsJVM;
-			}
-			// make sure the determined path exists
-			try {
-				File libDir = new File(path);
-				if (libDir.exists()) {
-					nativeLibPath = path;
+				if (this.parent.platform == PConstants.LINUX){ // if running on Linux platform
+					isArm = osArch.contains("arm");
+					fileName = "ftd2xxj";
+					PATH_SEPARATOR = ":";
+	
+					if (isArm){
+						// removing native usb serial drivers
+						removeDrivers();
+						// RPi solution to not have a dependacy on libraries in /usr/local/lib/
+						System.load(nativeLibPath + "arm7/libftd2xx.so");
+					}
+					
+					path = isArm ? nativeLibPath + "arm7" : nativeLibPath + "linux" + bitsJVM;
 				}
-			} catch (NullPointerException e){
-				System.err.println("Cannot load local version of D2XX!");
-				e.printStackTrace();
-				nativeLoaded = false;
-			}
-			// add library path to java.library.path
-			try {
-				addLibraryPath(nativeLibPath);
-			} catch (Exception e){
-				e.printStackTrace();
-				nativeLoaded = false;
-			}
-			// load the desired library
-			try {
-				System.loadLibrary(fileName);
-				nativeLoaded = true;
-			} catch (UnsatisfiedLinkError e) {
-				e.printStackTrace();
-				nativeLoaded = false;
+				// make sure the determined path exists
+				try {
+					File libDir = new File(path);
+					if (libDir.exists()) {
+						nativeLibPath = path;
+					}
+				} catch (NullPointerException e){
+					System.err.println("Cannot load local version of D2XX!");
+					e.printStackTrace();
+					nativeLoaded = false;
+				}
+				// add library path to java.library.path
+				try {
+					addLibraryPath(nativeLibPath);
+				} catch (Exception e){
+					e.printStackTrace();
+					nativeLoaded = false;
+				}
+				// load the desired library
+				try {
+					System.loadLibrary(fileName);
+					nativeLoaded = true;
+				} catch (UnsatisfiedLinkError e) {
+					e.printStackTrace();
+					nativeLoaded = false;
+				}
+			} else {
+				System.err.println("Cant load native library with null local class path!");
 			}
 		}
 	}
@@ -525,6 +550,8 @@ public class D2XX implements Runnable{
 			} else {
 				return "";
 			}
+		} else {
+			System.err.println("D2XX found null path to class location!");
 		}
 		return "";
 	}
