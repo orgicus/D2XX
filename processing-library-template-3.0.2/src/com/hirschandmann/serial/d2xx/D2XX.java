@@ -178,13 +178,9 @@ public class D2XX implements Runnable{
 	 * 
 	 * @param bytes
 	 */
-	public void write(int dataByte){
-		if (dataByte > 0){
-			byteToWrite = PApplet.constrain(dataByte, 0, 255);
-			PACKET_TYPE = BYTE;
-		} else {
-			System.err.println("Attempting to write null bytes!");
-		}
+	public synchronized void write(int dataByte){
+		byteToWrite = PApplet.constrain(dataByte, 0, 255);
+		PACKET_TYPE = BYTE;
 	}
 	
 	/**
@@ -192,9 +188,9 @@ public class D2XX implements Runnable{
 	 * 
 	 * @param bytes
 	 */
-	public void write(byte[] dataBytes){
-		if (dataBytes != null){
-			try {
+	public synchronized void write(byte[] dataBytes){
+		if (dataBytes != null && dataBytes.length > 0){
+			try{
 				bytesToWrite.write(dataBytes);
 			} catch(IOException e){
 				e.printStackTrace();
@@ -213,9 +209,9 @@ public class D2XX implements Runnable{
 	 * @param offset
 	 * @param length
 	 */
-	public void write(byte[] buffer, int offset, int length){
-		if (buffer != null && offset > 0 && length > 0){
-			try {
+	public synchronized void write(byte[] buffer, int offset, int length){
+		if (buffer != null && buffer.length > 0 && offset > 0 && length > 0){
+			try{
 				bytesToWrite.write(buffer);
 			} catch(IOException e){
 				e.printStackTrace();
@@ -326,25 +322,33 @@ public class D2XX implements Runnable{
 						PACKET_TYPE = NO_DATA;
 						break;
 					case BYTES:
-						try {
-							dev.write(bytesToWrite.toByteArray());
-							bytesToWrite.reset();
-							dev.purgeTransmitBuffer();
-						} catch (FTD2xxException e){
-							e.printStackTrace();
+						if (bytesToWrite.toByteArray().length > 0 && bytesToWrite != null){
+							try {
+								dev.write(bytesToWrite.toByteArray());
+								bytesToWrite.reset();
+								dev.purgeTransmitBuffer();
+							} catch (FTD2xxException e){
+								e.printStackTrace();
+							}
+						} else {
+							System.err.println("Trying to write an empty buffer to D2XX device");
 						}
 						PACKET_TYPE = NO_DATA;
 						break;
 					case BYTES_OFFSET:
-						try {
-							dev.write(bytesToWrite.toByteArray(), writeOffset, writeLength);
-							bytesToWrite.reset();
-							dev.purgeTransmitBuffer();
-							writeOffset = -1;
-							writeLength = -1;
-						} catch (FTD2xxException e){
-							e.printStackTrace();
+						if (bytesToWrite.toByteArray().length > 0 && bytesToWrite != null){
+							try {
+								dev.write(bytesToWrite.toByteArray(), writeOffset, writeLength);
+								bytesToWrite.reset();
+								dev.purgeTransmitBuffer();
+							} catch (FTD2xxException e){
+								e.printStackTrace();
+							}
+						} else {
+							System.err.println("Trying to write an empty buffer! to D2XX device");
 						}
+						writeOffset = -1;
+						writeLength = -1;
 						PACKET_TYPE = NO_DATA;
 						break;
 					case NO_DATA:
