@@ -48,6 +48,10 @@ public class D2XX implements Runnable{
 	private int writeOffset = -1;
 	private int writeLength = -1;
 	
+	private byte[] buffer = new byte[32768]; //TODO why this size to begin with?
+	private int inBuffer = 0;
+	private int readOffset = 0;
+	
 	private final int BYTE = 1;
 	private final int BYTES = 2;
 	private final int BYTES_OFFSET = 3;
@@ -197,7 +201,7 @@ public class D2XX implements Runnable{
 			}
 			PACKET_TYPE = BYTES;							
 		} else {
-			System.err.println("Attempting to write null bytes!");
+			System.err.println("Attempting to write null bytes to D2XX!");
 		}
 	}
 	
@@ -223,6 +227,14 @@ public class D2XX implements Runnable{
 			System.err.println("Attempting to write null information!");
 		}
 	}
+	
+	/**
+	 * Method that returns available number of bytes in serial buffer
+	 * @return int number of available bytes in serial buffer
+	 */
+	public int available() {
+	    return (inBuffer-readOffset);
+	  }
 	
 	/** 
 	 * Reading available data from the connected device
@@ -271,6 +283,59 @@ public class D2XX implements Runnable{
 			e.printStackTrace();
 		}
 		return readData;
+	}
+	
+	/**
+	 * Method that returns a section of the buffered input bytes up until a marker byte.
+	 * Inspired by the same method from Processing's serial - 
+	 * https://github.com/processing/processing/blob/master/java/libraries/serial/src/processing/serial/Serial.java#L451
+	 * @param marker - The byte to end the return section
+	 * @param output - The output byte array to be altered
+	 * @return int number of bytes copied
+	 */
+	public int readBytesUntil(byte marker, byte[] output){
+		// if no bytes are available
+		if (inBuffer == readOffset){
+			return 0;
+		}
+		
+		// Find index of marker in buffer
+		synchronized(buffer){
+			int markerIndex = -1;
+			for (int i = readOffset; i < inBuffer; i++){
+				if (buffer[i] == marker){
+					markerIndex = i;
+					break;
+				}
+			}
+			// If marker wasnt found
+			if (markerIndex == -1){
+				return -1;
+			}
+			// Check if byte to copy will fit in output byte array
+			int BytesToRead = markerIndex - readOffset + 1;
+			if (output.length < BytesToRead){
+				System.err.println("Buffer passed to D2XX readBytesUntil() is too small, buffer size: " +
+									" bytes to read: " +
+									BytesToRead);
+				return -1;
+			}
+			//Copy desired bytes to output
+			System.arraycopy(buffer, readOffset, output, 0,BytesToRead);
+			readOffset += BytesToRead;
+			return BytesToRead;
+		}
+	}
+	
+	/**
+	 * Method to clear all bytes in the FTD2xx received buffer
+	 */
+	public void clearInput(){
+		try{
+			dev.purgeReceiveBuffer();
+		} catch(FTD2xxException e){
+			e.printStackTrace();
+		}
 	}
 	
 	/** Returns the connection status of the device
@@ -359,6 +424,32 @@ public class D2XX implements Runnable{
 				Thread.sleep(SLEEP_TIME);
 			} catch (InterruptedException e){
 				throw new IllegalStateException(e);
+			}
+			
+			
+			//TODO move to independant RX thread
+			long toRead;
+			try{
+				while (0 < (toRead = dev.getReceiveQueueStatus())){
+					
+					synchronized(buffer) {
+						// increase size of buffer in nescessary 
+						if (buffer.length < inBuffer + toRead){
+							byte[] temporaryBuff = new byte[buffer.length + (int)(toRead * 2)];
+							System.arraycopy(buffer, 0, temporaryBuff, 0, inBuffer);
+							buffer = temporaryBuff;
+						}
+						
+						// Read all new available bytes
+						byte[] newBytes = new byte[(int)dev.getReceiveQueueStatus()];
+						dev.read(newBytes);
+						// Copy new bytes into buffer
+						System.arraycopy(newBytes, 0, buffer, inBuffer, newBytes.length);
+						inBuffer += newBytes.length;
+					}
+				}
+			} catch(FTD2xxException e){
+				e.printStackTrace();
 			}
 		}
 	}
