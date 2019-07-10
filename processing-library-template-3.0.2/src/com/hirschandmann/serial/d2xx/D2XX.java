@@ -310,19 +310,24 @@ public class D2XX implements Runnable{
 			}
 			// If marker wasnt found
 			if (markerIndex == -1){
-				return -1;
+				return 0;
 			}
 			// Check if byte to copy will fit in output byte array
 			int BytesToRead = markerIndex - readOffset + 1;
 			if (output.length < BytesToRead){
-				System.err.println("Buffer passed to D2XX readBytesUntil() is too small, buffer size: " +
-									" bytes to read: " +
-									BytesToRead);
+//				System.err.println("Buffer passed to D2XX readBytesUntil() is too small, buffer size: " +
+//									" bytes to read: " +
+//									BytesToRead);
 				return -1;
 			}
 			//Copy desired bytes to output
 			System.arraycopy(buffer, readOffset, output, 0,BytesToRead);
+			
 			readOffset += BytesToRead;
+			if (inBuffer == readOffset) {
+		        inBuffer = 0;
+		        readOffset = 0;
+		    }
 			return BytesToRead;
 		}
 	}
@@ -330,13 +335,12 @@ public class D2XX implements Runnable{
 	/**
 	 * Method to clear all bytes in the FTD2xx received buffer
 	 */
-	public void clearInput(){
-		try{
-			dev.purgeReceiveBuffer();
-		} catch(FTD2xxException e){
-			e.printStackTrace();
-		}
-	}
+	public void clear() {
+	    synchronized (buffer) {
+	      inBuffer = 0;
+	      readOffset = 0;
+	    }
+	  }
 	
 	/** Returns the connection status of the device
 	 * 
@@ -433,7 +437,7 @@ public class D2XX implements Runnable{
 				while (0 < (toRead = dev.getReceiveQueueStatus())){
 					
 					synchronized(buffer) {
-						// increase size of buffer in nescessary 
+						// increase size of buffer if nescessary 
 						if (buffer.length < inBuffer + toRead){
 							byte[] temporaryBuff = new byte[buffer.length + (int)(toRead * 2)];
 							System.arraycopy(buffer, 0, temporaryBuff, 0, inBuffer);
@@ -441,11 +445,18 @@ public class D2XX implements Runnable{
 						}
 						
 						// Read all new available bytes
-						byte[] newBytes = new byte[(int)dev.getReceiveQueueStatus()];
-						dev.read(newBytes);
-						// Copy new bytes into buffer
-						System.arraycopy(newBytes, 0, buffer, inBuffer, newBytes.length);
-						inBuffer += newBytes.length;
+						int bytesInQue = (int)dev.getReceiveQueueStatus();
+						if (bytesInQue > 0){
+							byte[] newBytes = new byte[bytesInQue];
+							
+							dev.read(newBytes);
+							// Copy new bytes into buffer
+							
+							//TODO problem with below line - ArrayIndexOutOfBoundsException
+							System.arraycopy(newBytes, 0, buffer, inBuffer, newBytes.length);
+							
+							inBuffer += newBytes.length;
+						}
 					}
 				}
 			} catch(FTD2xxException e){
